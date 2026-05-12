@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guangzhou Budget Calculator</title>
+<style>
+  :root {
+    --color-text-primary: #111827;
+    --color-text-secondary: #6b7280;
+    --color-text-tertiary: #9ca3af;
+    --color-text-success: #065f46;
+    --color-background-primary: #ffffff;
+    --color-background-secondary: rgba(255,255,255,0.85);
+    --color-background-success: #d1fae5;
+    --color-border-primary: #9ca3af;
+    --color-border-secondary: #d1d5db;
+    --color-border-tertiary: #e5e7eb;
+    --border-radius-md: 6px;
+    --border-radius-lg: 10px;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f4f3ee; font-family: var(--font-sans); }
+  .wrap { padding: 1rem; max-width: 900px; margin: 0 auto; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 6px; margin-bottom: 1rem; flex-wrap: wrap; }
+  .tab { padding: 5px 13px; font-size: 12px; border-radius: 20px; border: 0.5px solid var(--color-border-secondary); background: transparent; color: var(--color-text-secondary); cursor: pointer; white-space: nowrap; }
+  .tab.active { background: var(--color-background-secondary); color: var(--color-text-primary); border-color: var(--color-border-primary); font-weight: 500; }
+
+  /* Toolbar row */
+  .toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 0.75rem; }
+  .scenario-note { font-size: 12px; color: var(--color-text-secondary); flex: 1; }
+  .fx-block { font-size: 12px; color: var(--color-text-secondary); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+
+  /* Currency toggle */
+  .currency-toggle { display: flex; align-items: center; gap: 0; border: 1px solid var(--color-border-primary); border-radius: 20px; overflow: hidden; }
+  .currency-toggle button { padding: 4px 12px; font-size: 11.5px; border: none; cursor: pointer; background: transparent; color: var(--color-text-secondary); font-weight: 500; transition: all 0.15s; }
+  .currency-toggle button.active { background: var(--color-text-primary); color: #fff; }
+
+  /* KPIs */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 1.25rem; }
+  .kpi { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 0.8rem 1rem; }
+  .kpi-label { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 3px; }
+  .kpi-val { font-size: 21px; font-weight: 500; color: var(--color-text-primary); }
+  .kpi-sub { font-size: 11px; color: var(--color-text-tertiary); margin-top: 2px; }
+
+  /* Bar chart */
+  .bars { margin-bottom: 1.1rem; }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .bar-cat { font-size: 11.5px; color: var(--color-text-secondary); width: 130px; flex-shrink: 0; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-track { flex: 1; background: #e5e7eb; border-radius: 3px; height: 13px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
+  .bar-amt { font-size: 11.5px; font-weight: 500; color: var(--color-text-primary); width: 80px; flex-shrink: 0; }
+
+  /* Sections */
+  .section { background: var(--color-background-primary); border: 1px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); margin-bottom: 8px; overflow: hidden; }
+  .sec-hdr { display: flex; align-items: center; justify-content: space-between; padding: 0.7rem 1rem; cursor: pointer; user-select: none; }
+  .sec-hdr:hover { background: #fafafa; }
+  .sec-title { display: flex; align-items: center; gap: 9px; font-size: 13.5px; font-weight: 500; color: var(--color-text-primary); }
+  .icon-dot { width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; line-height: 1; }
+  .sec-badge { font-size: 12px; color: var(--color-text-secondary); }
+  .sec-hdr-right { display: flex; align-items: center; gap: 8px; }
+  .chevron { transition: transform 0.2s; color: var(--color-text-tertiary); font-size: 13px; display: inline-block; }
+  .section.open .chevron { transform: rotate(180deg); }
+  .sec-body { border-top: 1px solid var(--color-border-tertiary); }
+
+  /* Lines */
+  .line { display: flex; justify-content: space-between; align-items: flex-start; padding: 0.5rem 1rem; font-size: 12.5px; border-bottom: 1px solid var(--color-border-tertiary); gap: 12px; }
+  .line:last-child { border-bottom: none; }
+  .line-label { color: var(--color-text-secondary); flex: 1; }
+  .line-note { font-size: 11px; color: var(--color-text-tertiary); margin-top: 1px; }
+  .line-amt { font-weight: 500; color: var(--color-text-primary); white-space: nowrap; border: 1px solid transparent; border-radius: 4px; padding: 1px 4px; cursor: text; min-width: 2em; text-align: right; }
+  .line-amt:hover { background: #f3f4f6; border-color: var(--color-border-secondary); }
+  .line-amt:focus { outline: 2px solid #3266ad; background: #fff; border-color: transparent; }
+  .line-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .remove-item-btn { background: none; border: none; cursor: pointer; color: #d1d5db; font-size: 15px; line-height: 1; padding: 2px 4px; border-radius: 4px; transition: color 0.15s; flex-shrink: 0; }
+  .remove-item-btn:hover { color: #ef4444; background: #fee2e2; }
+  .note-row { background: #fafafa; border-bottom: 1px solid var(--color-border-tertiary); }
+  .note-row:last-child { border-bottom: none; }
+
+  /* Add item row */
+  .add-item-row { padding: 0.45rem 1rem; display: flex; gap: 8px; align-items: center; border-top: 1px dashed var(--color-border-secondary); background: #fafafa; }
+  .add-item-input { flex: 1; font-size: 12px; border: 1px solid var(--color-border-secondary); border-radius: 4px; padding: 4px 8px; color: var(--color-text-primary); background: #fff; }
+  .add-item-input:focus { outline: 2px solid #3266ad; border-color: transparent; }
+  .add-item-amt { width: 80px; font-size: 12px; border: 1px solid var(--color-border-secondary); border-radius: 4px; padding: 4px 6px; text-align: right; background: #fff; }
+  .add-item-amt:focus { outline: 2px solid #3266ad; border-color: transparent; }
+  .add-btn-sm { padding: 4px 10px; font-size: 11.5px; border-radius: 4px; border: 1px solid #3266ad; color: #3266ad; background: transparent; cursor: pointer; white-space: nowrap; font-weight: 500; }
+  .add-btn-sm:hover { background: #3266ad; color: #fff; }
+
+  /* Section action buttons (icon-only, appear in header) */
+  .sec-action-btn { background: none; border: none; cursor: pointer; font-size: 13px; padding: 3px 5px; border-radius: 4px; color: var(--color-text-tertiary); line-height: 1; transition: all 0.15s; }
+  .sec-action-btn:hover { color: #ef4444; background: #fee2e2; }
+  .sec-action-btn.del-sec:hover { color: #ef4444; background: #fee2e2; }
+
+  /* Add section panel */
+  .add-section-panel { background: var(--color-background-primary); border: 1.5px dashed var(--color-border-primary); border-radius: var(--border-radius-lg); margin-bottom: 8px; padding: 0.8rem 1rem; }
+  .add-section-panel h4 { margin: 0 0 0.6rem; font-size: 13px; color: var(--color-text-secondary); font-weight: 500; }
+  .add-section-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+  .form-group { display: flex; flex-direction: column; gap: 3px; }
+  .form-group label { font-size: 10.5px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; }
+  .form-input { font-size: 12.5px; border: 1px solid var(--color-border-secondary); border-radius: 4px; padding: 5px 8px; color: var(--color-text-primary); background: #fff; }
+  .form-input:focus { outline: 2px solid #3266ad; border-color: transparent; }
+  .emoji-picker { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+  .emoji-opt { cursor: pointer; font-size: 16px; padding: 3px; border-radius: 4px; border: 1.5px solid transparent; transition: all 0.1s; }
+  .emoji-opt.selected { border-color: #3266ad; background: #eff6ff; }
+  .color-picker { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
+  .color-opt { width: 18px; height: 18px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.1s; }
+  .color-opt.selected { border-color: #111; transform: scale(1.15); }
+  .add-section-btn { padding: 6px 16px; font-size: 12.5px; border-radius: 4px; border: none; color: #fff; background: #3266ad; cursor: pointer; font-weight: 500; white-space: nowrap; }
+  .add-section-btn:hover { background: #2555a0; }
+  .show-add-section-btn { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 8px; font-size: 12.5px; border-radius: var(--border-radius-lg); border: 1.5px dashed var(--color-border-primary); background: transparent; color: var(--color-text-secondary); cursor: pointer; margin-bottom: 8px; font-family: var(--font-sans); }
+  .show-add-section-btn:hover { background: #fff; color: var(--color-text-primary); }
+
+  /* Verified badge */
+  .verified-badge { font-size: 10px; background: var(--color-background-success); color: var(--color-text-success); padding: 1px 6px; border-radius: 10px; margin-left: 6px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2 style="margin:0 0 0.75rem;font-size:17px;font-weight:600;color:#111827;">Guangzhou Budget Calculator</h2>
+
+  <div class="tabs" id="tabBar"></div>
+  <div class="toolbar">
+    <div class="scenario-note" id="snote"></div>
+    <div class="fx-block">
+      FX: 1 USD =
+      <span class="line-amt" contenteditable="true"
+        onfocus="selAll(this)"
+        onblur="editFX(this)"
+        onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}"
+        id="fxDisplay">6.8</span> RMB
+    </div>
+    <div class="currency-toggle">
+      <button id="btnRMB" class="active" onclick="setCurrency('RMB')">¥ RMB</button>
+      <button id="btnUSD" onclick="setCurrency('USD')">$ USD</button>
+    </div>
+  </div>
+
+  <div class="kpi-grid" id="kpiGrid">
+    <div class="kpi"><div class="kpi-label">Monthly total</div><div class="kpi-val" id="kMonthly">—</div><div class="kpi-sub" id="kMonthlySub">/ month</div></div>
+    <div class="kpi"><div class="kpi-label">Annual total</div><div class="kpi-val" id="kAnnual">—</div><div class="kpi-sub" id="kAnnualSub">/ year</div></div>
+    <div class="kpi"><div class="kpi-label" id="kOtherLabel">USD / year</div><div class="kpi-val" id="kOther">—</div><div class="kpi-sub">@ FX rate</div></div>
+    <div class="kpi"><div class="kpi-label">FIRE number</div><div class="kpi-val" id="kFIRE">—</div><div class="kpi-sub">25× rule (USD)</div></div>
+  </div>
+
+  <div class="bars" id="barChart"></div>
+  <div id="sections"></div>
+  <button class="show-add-section-btn" id="addSectionToggle" onclick="toggleAddSection()">＋ Add new section</button>
+  <div class="add-section-panel" id="addSectionPanel" style="display:none;">
+    <h4>New section</h4>
+    <div style="margin-bottom:0.6rem;">
+      <div class="form-group" style="margin-bottom:6px;">
+        <label>Section name</label>
+        <input class="form-input" id="newSecName" placeholder="e.g. Pets" style="width:220px;">
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:10.5px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Icon</div>
+          <div class="emoji-picker" id="emojiPicker"></div>
+        </div>
+        <div>
+          <div style="font-size:10.5px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Color</div>
+          <div class="color-picker" id="colorPicker"></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="add-section-btn" onclick="addNewSection()">Add section</button>
+      <button class="add-section-btn" style="background:transparent;color:var(--color-text-secondary);border:1px solid var(--color-border-secondary);" onclick="toggleAddSection()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var FX = 6.8;
+var currency = 'RMB'; // 'RMB' or 'USD'
+
+const PALETTE = ["#3266ad","#1D9E75","#D85A30","#7F77DD","#BA7517","#993556","#888780","#0F6E56","#533AB7","#2C2C2A","#6B8F5E","#C04A80"];
+const EMOJIS = ["🏠","👤","🍳","🏃","🚕","👔","🎮","✈️","🛡️","🏫","💰","🐾","🎵","💊","📚","🌿","🎨","🏋️","🛒","🎉"];
+
+let selectedEmoji = EMOJIS[0];
+let selectedColor = PALETTE[0];
+
+// Custom sections added by user (per scenario)
+const customSections = {}; // { scenarioKey: [{label, icon, color, items:[]}] }
+// Per-scenario custom items added to existing base cats
+const customItems = {}; // { scenarioKey: { catLabel: [{l,a,n}] } }
+// Removed items tracked by stable _id (never shifts)
+const removedIds = {}; // { scenarioKey: { catLabel: Set of _id strings } }
+// Removed entire cats (label strings, custom only)
+const removedCustomSections = {}; // { scenarioKey: Set of labels }
+
+let _idCounter = 0;
+function nextId() { return 'item_' + (++_idCounter); }
+
+const iconEmoji = {
+  "ti-home":"🏠","ti-user":"👤","ti-tools-kitchen-2":"🍳",
+  "ti-run":"🏃","ti-taxi":"🚕","ti-shirt":"👔",
+  "ti-device-gamepad-2":"🎮","ti-plane":"✈️","ti-shield":"🛡️","ti-school":"🏫","ti-money":"💰"
+};
+
+const baseCats = [
+  {
+    icon:"ti-home", color:"#3266ad", label:"Housing",
+    note:"Verified: Tianhe periphery/Haizhu/Panyu 4BR near metro ¥8–13k; quality compound ¥11–13k. Utilities rise in summer due to AC.",
+    items:[
+      {l:"Rent — 4BR, metro-accessible compound (Haizhu/Tianhe East/Panyu)", a:15000, n:"Verified market: Panyu ¥7,800–9,000; Haizhu ¥9,000–12,000; Tianhe periph ¥11,000–14,000. Budget 15k buffer."},
+      {l:"Utilities (electric, water, gas, internet)", a:1100, n:"GZ summer AC bills heavy; electric alone ¥600–900/mo in summer"},
+      {l:"Property management fee (物业费)", a:600, n:"Mid-to-high compound ¥4–6/㎡/month; ~150㎡ unit = ¥600–900"},
+    ]
+  },
+  {
+    icon:"ti-user", color:"#1D9E75", label:"Ayi / household",
+    note:"Verified: GZ job boards (家政港) show live-out ayis with cooking + childcare experience posting ¥6,500–8,000/month. ¥7,500 is realistic for experienced, Mandarin-speaking.",
+    items:[
+      {l:"Live-out full-time ayi (cook, clean, childcare, school run)", a:7500, n:"Verified: Real GZ listings 2024–25 show ¥6,500–8,000 for experienced ayi with childcare. Tianhe/Haizhu slightly higher."},
+      {l:"Year-end bonus / informal social buffer (1 month equiv.)", a:625, n:"Standard practice to give 1–2 months bonus; provisioned monthly"},
+      {l:"Household supplies bought by ayi (cleaning products, etc.)", a:400, n:"Mops, detergent, sponges, etc. — ayi often buys and reimburses"},
+    ]
+  },
+  {
+    icon:"ti-tools-kitchen-2", color:"#D85A30", label:"Food & dining",
+    note:"Verified: Wet market ¥80–120/day for family of 3. Sam's Club $200/trip realistic. Dim sum for 3 typically ¥120–200; noodles/malatang ¥30–60/head.",
+    items:[
+      {l:"Daily wet market / fresh groceries (ayi shopping)", a:3000, n:"¥80–120/day × 30 days. Family of 3, fresh produce, meat, fish, tofu."},
+      {l:"Sam's Club (1x/month, ~$200 USD)", a:1500, n:"¥1,460 at FX rate; household goods, packaged food, snacks"},
+      {l:"Quality Chinese supermarket — Hema 盒马 / Ole / Yonghui", a:1000, n:"Good milk, better cuts, yogurt, packaged goods; 3–4x/month"},
+      {l:"Dining out casual — noodles, dim sum, malatang (3–4x/week)", a:2600, n:"¥150–220/meal for family of 3 at casual spots; weekend dim sum slightly more"},
+      {l:"Splurge meals — roast goose, better restaurants (2–3x/month)", a:700, n:"¥300–450/meal;烧鹅 in GZ is world-class and ranges ¥200–500 for family"},
+      {l:"Western restaurant (once a month)", a:550, n:"Decent Western in GZ: ¥400–700 for family of 3"},
+      {l:"Boba/drinks/snacks 2–4x/week (family of 3–4 drinks/visit)", a:500, n:"¥20–35/cup × 3 cups × ~15 visits/month"},
+    ]
+  },
+  {
+    icon:"ti-run", color:"#7F77DD", label:"Health & fitness",
+    note:"Verified: Gym annual card ¥2k–4k/person with pool; pilates team class ¥80–150 or monthly card ¥2,000–3,000; massage ¥85–300/visit.",
+    items:[
+      {l:"Gym membership x2 with pool (annual card, quality club)", a:600, n:"¥3500/person/year at a decent gym with pool. Private clubs in GZ. Monthly equivalent ~¥500–600/person."},
+      {l:"Pilates group classes — wife (10–12x/month, monthly card)", a:2000, n:"Verified: 天河优雅普拉提 monthly card ¥2,000–3,000; group class ¥80–150/session. ¥2,000 = ~10 classes/month realistic."},
+      {l:"Massage membership / visits (2x/month, mid-range parlor)", a:550, n:"Decent 推拿/足疗 ¥200–350/visit (90 min); membership or DianPing deal ~¥280–350. 2x/month."},
+      {l:"Wife's hair salon, lashes, nails (monthly)", a:1200, n:"Hair color + cut ¥400–600; lash refills ¥200–350; gel nails ¥150–250."},
+      {l:"General health — dental, pharmacy, TCM, annual checkup", a:800, n:"Private hospital dental cleaning ¥300–500; OTC meds; one full checkup/year ~¥1,500 amortized"},
+    ]
+  },
+  {
+    icon:"ti-taxi", color:"#BA7517", label:"Transport",
+    items:[
+      {l:"Didi rides (school run, errands, rainy days)", a:1200, n:"Without a car, Didi is frequent. 10–15 rides/month at ¥50–120/trip average."},
+      {l:"Metro (family top-ups)", a:400, n:"GZ metro is cheap, ~¥3–8/trip. Light use as adults aren't commuting."},
+    ]
+  },
+  {
+    icon:"ti-shirt", color:"#993556", label:"Shopping & clothing",
+    note:"Your US baseline was $13k/yr. GZ cost of goods is 30–50% lower on most apparel, electronics, and household goods. Estimated ¥55–70k/yr (~$7.5–9.5k USD).",
+    items:[
+      {l:"Adults' clothing, shoes, accessories", a:2000, n:"~¥24k/yr. Lower than US; quality Chinese brands, occasional imported item."},
+      {l:"Children's clothing and gear (growing fast)", a:1000, n:"Kids outgrow clothes every 6 months; ¥12k/yr reasonable for 1 child"},
+      {l:"Household goods, decor, small appliances (Taobao/JD)", a:1200, n:"Kitchen replacements, storage, bedding, electronics accessories"},
+      {l:"Books, toys, educational materials for child", a:600, n:"Board games, Chinese/English books, STEM kits, etc."},
+    ]
+  },
+  {
+    icon:"ti-device-gamepad-2", color:"#888780", label:"Entertainment & family",
+    items:[
+      {l:"Movies, fun zones, night markets, weekend outings", a:1600, n:"¥400/week: cinema (~¥150/family), night market, occasional theme park"},
+      {l:"Kids' extracurriculars (swim, art, music, 1–2 classes/week)", a:1500, n:"Private class ¥100–250/session × 6–8 sessions/month. Typical in GZ."},
+      {l:"Streaming + digital (iQiyi, Youku, Netflix, Spotify)", a:300, n:""},
+    ]
+  },
+  {
+    icon:"ti-plane", color:"#0F6E56", label:"Travel (monthly provision)",
+    note:"Domestic 4-star+ hotels ¥500–1,000/night. Thailand/Bali 5-star still $80–150/night; Japan/Korea 3–4 star. Flights from GZ to SE Asia ~¥1,500–2,500 return/person.",
+    items:[
+      {l:"Domestic trips 3x/year — 4-star hotels, flights, food", a:2500, n:"¥10k/trip avg: flights GGZ–Chengdu/Yunnan/Guilin ¥800–1,500/person return; 4-star ¥600–900/night × 3–4 nights; food + activities."},
+      {l:"Annual Asia trip — SE Asia 5-star or JP/KR 4-star", a:3500, n:"Thailand/Bali: flights ¥5k–8k for family + 5-star ¥700–1,000/night × 7 nights. JP/KR: similar flights, 4-star ¥500–800/night."},
+      {l:"Biennial US trip — 2 weeks, family (provisioned monthly)", a:2500, n:"¥60k budget: flights ¥35k (GGZ–LAX/JFK 3 pax return); hotels ¥10k; food/transport ¥8k; activities ¥7k. Divided over 2 years."},
+    ]
+  },
+  {
+    icon:"ti-shield", color:"#533AB7", label:"Insurance & admin",
+    items:[
+      {l:"Commercial health insurance — family 商业保险 (mid-tier)", a:2200, n:"Private hospital access plan; rises with age. ¥1,500–3,000/month depending on age + coverage tier."},
+      {l:"Life + critical illness insurance (重疾险 + term)", a:900, n:"Combo policy; price locked at time of purchase, ideally in your 30s."},
+      {l:"Phone plans x2 + kids tablet data", a:300, n:""},
+      {l:"US tax filing (expat CPA, FBAR, 1040 — if applicable)", a:400, n:"~$3,500–5,000 USD/yr for good expat CPA; non-negotiable if US citizen/GC"},
+    ]
+  }
+];
+
+const scenarios = {
+  base: { label:"Base · 1 kid", snote:"1 child, no school fees. Solid baseline for the first several years. Numbers verified against 2024–25 GZ market data.", extra:{} },
+  base_with_school: { label:"Base · 1 kid · bilingual", snote:"1 child, with bilingual school fees. For when 1st child enters school.", extra:{ school:{icon:"ti-school",color:"#533AB7",label:"Education",items:[{l:"Bilingual private school — child 1",a:10000,n:"双语学校 GZ range ¥10000/month; mid-tier quality school"}]} } },
+  two: { label:"2 kids · bilingual", snote:"2 children + bilingual private school (双语学校). Adds ayi support and school fees.", extra:{ ayi:[{l:"Extra support / part-time help for 2nd child",a:1500,n:"Second child usually means upgrading to live-in ayi or adding part-time support; ¥1,200–2,000 incremental"}], school:{icon:"ti-school",color:"#533AB7",label:"Education",items:[{l:"Bilingual private school — child 1",a:10000,n:"双语学校 GZ range ¥10000/month"},{l:"Bilingual private school — child 2",a:10000,n:"双语学校 GZ range ¥10000/month"}]} } },
+  two_with_job: { label:"2 kids · bilingual w/ job", snote:"Same as 2 children, but with international school teaching job", extra:{ ayi:[{l:"Extra support / part-time help for 2nd child",a:1500,n:"¥1,200–2,000 incremental"}], school:{icon:"ti-school",color:"#533AB7",label:"Education",items:[{l:"Bilingual private school — child 1",a:0,n:"Waived if teaching."},{l:"Bilingual private school — child 2",a:0,n:"Waived if teaching."}]}, job:{icon:"ti-money",color:"#90EE90",label:"Job & Income",items:[{l:"Teaching",a:-20000,n:"Private international school income ¥200k–¥400k/year"}]} } },
+  intl: { label:"2 kids · 1 in intl HS", snote:"2 children: younger still in bilingual school; older now in international high school.", extra:{ ayi:[{l:"Extra support for 2 kids (school runs, later pickups)",a:1500,n:""}], school:{icon:"ti-school",color:"#533AB7",label:"Education",items:[{l:"Bilingual school — younger child",a:10000,n:"双语学校 still ¥3,500–4,500/month"},{l:"International high school — older child (e.g. AISG)",a:25000,n:"AISG 2025-26: Gr 9-12 = ¥296,050/yr → ¥24,671/mo."},{l:"AISG bus transport (mid-route estimate)",a:1200,n:"¥9,600–19,200/yr → avg ¥14,400 → ¥1,200/mo"},{l:"AISG ECAs, trips (avg ¥2,900/yr)",a:250,n:"¥0–6,500/yr; avg ¥2,900 → ¥242/mo"},{l:"School lunch (¥32 avg × 180 days)",a:480,n:"¥26–37/day → ¥32 avg × 180 school days → ¥5,760/yr → ¥480/mo"},{l:"Laptop (amortized over 4 years)",a:188,n:"¥7,000–8,500 → avg ¥7,750 ÷ 4 years"},{l:"PE uniform",a:14,n:"¥110–170 → ¥140 avg; one-time"}]} } },
+  intl_with_job: { label:"2 kids · 1 in intl HS w/ job", snote:"Same as 2 children intl, but with international school teaching job", extra:{ ayi:[{l:"Extra support / part-time help for 2nd child",a:1500,n:"¥1,200–2,000 incremental"}], school:{icon:"ti-school",color:"#533AB7",label:"Education",items:[{l:"Bilingual school — younger child",a:10000,n:"双语学校 still ¥3,500–4,500/month"},{l:"International high school — older child (e.g. AISG)",a:0,n:"Waived."},{l:"AISG bus transport (mid-route estimate)",a:1200,n:"¥14,400/yr avg"},{l:"AISG ECAs, trips (avg ¥2,900/yr)",a:250,n:""},{l:"School lunch (¥32 avg × 180 days)",a:480,n:""},{l:"Laptop (amortized over 4 years)",a:188,n:""},{l:"PE uniform",a:14,n:""}]}, job:{icon:"ti-money",color:"#90EE90",label:"Job & Income",items:[{l:"Teaching",a:-20000,n:"Private international school income ¥200k–¥400k/year"}]} } },
+  peak: { label:"Peak · both at AISG", snote:"Peak spend: both children at AISG simultaneously.", extra:{ ayi:[{l:"Additional household support (2 kids, both at AISG)",a:1500,n:"School run logistics, after-school support"}], school:{icon:"ti-school",color:"#533AB7",label:"Education — both at AISG",items:[{l:"AISG tuition — child 1 (upper secondary, Gr 9–12)",a:25325,n:"¥303,900/yr → ¥25,325/mo"},{l:"AISG tuition — child 2 (secondary, Gr 6–8 or 9–12)",a:24671,n:"Using conservative mid-secondary rate."},{l:"Bus transport x2 (mid-route)",a:2400,n:"¥28,800/yr → ¥2,400/mo"},{l:"ECAs + trips x2 (avg ¥2,900/child/yr)",a:483,n:"¥5,800/yr total → ¥483/mo"},{l:"School lunch x2 (¥32/day × 180 days)",a:960,n:"¥11,520/yr → ¥960/mo"},{l:"Laptops x2 (amortized)",a:325,n:"¥3,875/yr → ¥323/mo"},{l:"PE uniforms x2",a:25,n:"~¥140 × 2 amortized"}]} } },
+  peak_with_job: { label:"Peak · both at AISG w/ job", snote:"Peak spend: both children at AISG, tuition waived by teaching job.", extra:{ ayi:[{l:"Additional household support (2 kids, both at AISG)",a:1500,n:"School run logistics, after-school support"}], school:{icon:"ti-school",color:"#533AB7",label:"Education — both at AISG",items:[{l:"AISG tuition — child 1 (upper secondary, Gr 9–12)",a:0,n:"Waived."},{l:"AISG tuition — child 2 (secondary, Gr 6–8 or 9–12)",a:0,n:"Waived."},{l:"Bus transport x2 (mid-route)",a:2400,n:"¥2,400/mo"},{l:"ECAs + trips x2 (avg ¥2,900/child/yr)",a:483,n:""},{l:"School lunch x2 (¥32/day × 180 days)",a:960,n:""},{l:"Laptops x2 (amortized)",a:325,n:""},{l:"PE uniforms x2",a:25,n:""}]}, job:{icon:"ti-money",color:"#90EE90",label:"Job & Income",items:[{l:"Teaching",a:-20000,n:"Private international school income ¥200k–¥400k/year"}]} } }
+};
+
+const scenarioKeys = ['base','base_with_school','two','two_with_job','intl','intl_with_job','peak','peak_with_job'];
+
+let cur = 'base';
+let open = new Set([0,2,7]);
+const overrides = {}; // { scenario: { "catLabel:ii": number } }
+
+// ─── Data helpers ──────────────────────────────────────────────────────────
+
+function initScenario(s) {
+  if (!customSections[s]) customSections[s] = [];
+  if (!customItems[s]) customItems[s] = {};
+  if (!removedIds[s]) removedIds[s] = {};
+  if (!removedCustomSections[s]) removedCustomSections[s] = new Set();
+}
+
+function getCats() {
+  initScenario(cur);
+  // Deep copy base cats
+  const cats = JSON.parse(JSON.stringify(baseCats));
+  const ex = scenarios[cur].extra;
+  if (ex.ayi) {
+    const ayiCat = cats.find(c => c.label === "Ayi / household");
+    ayiCat.items.push(...JSON.parse(JSON.stringify(ex.ayi)));
+  }
+  if (ex.school) cats.push(JSON.parse(JSON.stringify(ex.school)));
+  if (ex.job) cats.push(JSON.parse(JSON.stringify(ex.job)));
+
+  // Apply custom items added per-cat
+  cats.forEach(cat => {
+    const ci = customItems[cur][cat.label] || [];
+    cat.items.push(...JSON.parse(JSON.stringify(ci)));
+  });
+
+  // Stamp stable _ids on every item (written directly onto source objects so they persist across getCats() calls)
+  cats.forEach(cat => {
+    cat.items.forEach(item => {
+      if (!item._id) item._id = nextId();
+    });
+  });
+
+  // Apply removed items per-cat (by stable _id)
+  cats.forEach(cat => {
+    const removed = removedIds[cur][cat.label] || new Set();
+    cat.items = cat.items.filter(item => !removed.has(item._id));
+  });
+
+  // Apply overrides (keyed by _id)
+  cats.forEach(cat => {
+    cat.items.forEach(item => {
+      const key = `${cat.label}:${item._id}`;
+      if (overrides[cur]?.[key] !== undefined) item.a = overrides[cur][key];
+    });
+  });
+
+  // Append custom sections (minus removed ones)
+  const removed = removedCustomSections[cur];
+  const customs = (customSections[cur] || []).filter(cs => !removed.has(cs.label));
+  customs.forEach(cs => {
+    const copy = JSON.parse(JSON.stringify(cs));
+    const ci = customItems[cur][cs.label] || [];
+    copy.items.push(...JSON.parse(JSON.stringify(ci)));
+    copy.items.forEach(item => { if (!item._id) item._id = nextId(); });
+    const rem = removedIds[cur][cs.label] || new Set();
+    copy.items = copy.items.filter(item => !rem.has(item._id));
+    copy.items.forEach(item => {
+      const key = `${cs.label}:${item._id}`;
+      if (overrides[cur]?.[key] !== undefined) item.a = overrides[cur][key];
+    });
+    cats.push(copy);
+  });
+
+  return cats;
+}
+
+function setOverride(catLabel, itemId, val) {
+  if (!overrides[cur]) overrides[cur] = {};
+  overrides[cur][`${catLabel}:${itemId}`] = val;
+}
+
+function totalRMB() {
+  return getCats().reduce((s, cat) => s + cat.items.reduce((ss, i) => ss + i.a, 0), 0);
+}
+
+// ─── Formatting ──────────────────────────────────────────────────────────
+
+function fmtAmt(rmb) {
+  if (currency === 'USD') {
+    const usd = rmb / FX;
+    return '$' + Math.round(usd).toLocaleString();
+  }
+  return '¥' + Math.round(rmb).toLocaleString();
+}
+
+function fmtRaw(rmb) { return Math.round(rmb).toString(); }
+
+// ─── Render ──────────────────────────────────────────────────────────────
+
+function renderTabs() {
+  document.getElementById('tabBar').innerHTML = scenarioKeys.map(k =>
+    `<button class="tab ${k===cur?'active':''}" onclick="setS('${k}')">${scenarios[k].label}</button>`
+  ).join('');
+}
+
+function renderKPIs() {
+  const t = totalRMB();
+  const ann = t * 12;
+  const usd = ann / FX;
+  if (currency === 'RMB') {
+    document.getElementById('kMonthly').textContent = '¥' + Math.round(t).toLocaleString();
+    document.getElementById('kMonthlySub').textContent = 'RMB / month';
+    document.getElementById('kAnnual').textContent = '¥' + Math.round(ann/1000) + 'k';
+    document.getElementById('kAnnualSub').textContent = 'RMB / year';
+    document.getElementById('kOtherLabel').textContent = 'USD / year';
+    document.getElementById('kOther').textContent = '~$' + Math.round(usd/1000) + 'k';
+  } else {
+    const tUSD = t / FX;
+    const annUSD = ann / FX;
+    document.getElementById('kMonthly').textContent = '$' + Math.round(tUSD).toLocaleString();
+    document.getElementById('kMonthlySub').textContent = 'USD / month';
+    document.getElementById('kAnnual').textContent = '$' + Math.round(annUSD/1000) + 'k';
+    document.getElementById('kAnnualSub').textContent = 'USD / year';
+    document.getElementById('kOtherLabel').textContent = 'RMB / year';
+    document.getElementById('kOther').textContent = '¥' + Math.round(ann/1000) + 'k';
+  }
+  document.getElementById('kFIRE').textContent = '~$' + Math.round(usd*25/1000) + 'k';
+  document.getElementById('snote').textContent = scenarios[cur].snote;
+}
+
+function renderBars() {
+  const cats = getCats();
+  const totals = cats.map(c => c.items.reduce((s,i) => s+i.a, 0));
+  const maxAbs = Math.max(...totals.map(Math.abs), 1);
+  document.getElementById('barChart').innerHTML = cats.map((cat, idx) => {
+    const pct = Math.max(0, Math.round((totals[idx] / maxAbs) * 100));
+    const color = cat.color || PALETTE[idx % PALETTE.length];
+    return `<div class="bar-row">
+      <div class="bar-cat" title="${cat.label}">${cat.label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color};"></div></div>
+      <div class="bar-amt">${fmtAmt(totals[idx])}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderSections() {
+  initScenario(cur);
+  const cats = getCats();
+  // Rebuild list of all cats with original indices for removal
+  // We need to track which cats are "custom" for removal purposes
+  const customLabels = new Set((customSections[cur] || []).map(c => c.label));
+
+  document.getElementById('sections').innerHTML = cats.map((cat, idx) => {
+    const catTotal = cat.items.reduce((s,i) => s+i.a, 0);
+    const isOpen = open.has(idx);
+    const color = cat.color || PALETTE[idx % PALETTE.length];
+    const emoji = typeof cat.icon === 'string' && cat.icon.startsWith('ti-') ? (iconEmoji[cat.icon] || '•') : (cat.icon || '•');
+    const isCustom = customLabels.has(cat.label);
+
+    return `<div class="section ${isOpen?'open':''}" id="s${idx}">
+      <div class="sec-hdr" onclick="tog(${idx})">
+        <div class="sec-title">
+          <div class="icon-dot" style="background:${color}22;">${emoji}</div>
+          ${cat.label}
+        </div>
+        <div class="sec-hdr-right">
+          <span class="sec-badge" id="badge${idx}">${fmtAmt(catTotal)}/mo</span>
+          ${isCustom ? `<button class="sec-action-btn del-sec" title="Remove section" onclick="removeSection(event,'${cat.label.replace(/'/g,"\\'")}')">✕</button>` : ''}
+          <span class="chevron">▾</span>
+        </div>
+      </div>
+      ${isOpen ? renderSecBody(cat, idx) : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderSecBody(cat, catIdx) {
+  const addRowId = `addrow-${catIdx}`;
+  const itemsHTML = cat.items.map((item) => `
+    <div class="line">
+      <div style="flex:1;">
+        <div class="line-label">${item.l}</div>
+        ${item.n ? `<div class="line-note">${item.n}</div>` : ''}
+      </div>
+      <div class="line-right">
+        <div class="line-amt" contenteditable="true"
+          data-catlabel="${cat.label.replace(/"/g,'&quot;')}" data-itemid="${item._id}"
+          onfocus="selAll(this)"
+          onblur="editAmt(this)"
+          onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}"
+        >${fmtAmt(item.a)}</div>
+        <button class="remove-item-btn" title="Remove item" onclick="removeItem(event,'${cat.label.replace(/'/g,"\\'")}','${item._id}')">✕</button>
+      </div>
+    </div>`).join('');
+
+  const noteHTML = cat.note ? `<div class="line note-row"><div style="font-size:11px;color:var(--color-text-tertiary);flex:1;">Data source: ${cat.note}</div></div>` : '';
+
+  return `<div class="sec-body">
+    ${itemsHTML}
+    ${noteHTML}
+    <div class="add-item-row" id="${addRowId}">
+      <input class="add-item-input" placeholder="Item name…" id="newitem-label-${catIdx}">
+      <input class="add-item-amt" placeholder="Amount (¥)" id="newitem-amt-${catIdx}" type="number" min="0">
+      <button class="add-btn-sm" onclick="addItem(event,'${cat.label.replace(/'/g,"\\'")}',${catIdx})">+ Add</button>
+    </div>
+  </div>`;
+}
+
+function render() {
+  renderKPIs();
+  renderBars();
+  renderSections();
+}
+
+// ─── Interactions ────────────────────────────────────────────────────────
+
+function selAll(el) {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+function editFX(el) {
+  const val = parseFloat(el.textContent.replace(/[^\d.]/g,''));
+  if (!isNaN(val) && val > 0) { FX = val; el.textContent = val; }
+  else el.textContent = FX;
+  render();
+}
+
+function editAmt(el) {
+  const catLabel = el.dataset.catlabel;
+  const itemId = el.dataset.itemid;
+  const raw = el.textContent.replace(/[¥$,\s]/g,'');
+  let val = parseFloat(raw);
+  if (!isNaN(val)) {
+    if (currency === 'USD') val = val * FX;
+    setOverride(catLabel, itemId, val);
+  }
+  render();
+}
+
+function tog(idx) {
+  if (open.has(idx)) open.delete(idx); else open.add(idx);
+  renderSections();
+}
+
+function setCurrency(c) {
+  currency = c;
+  document.getElementById('btnRMB').classList.toggle('active', c === 'RMB');
+  document.getElementById('btnUSD').classList.toggle('active', c === 'USD');
+  render();
+}
+
+function setS(s) {
+  cur = s;
+  open = new Set([0,2,7]);
+  renderTabs();
+  render();
+}
+
+// ─── Add / remove items ─────────────────────────────────────────────────
+
+function addItem(e, catLabel, catIdx) {
+  e.stopPropagation();
+  initScenario(cur);
+  const labelEl = document.getElementById(`newitem-label-${catIdx}`);
+  const amtEl = document.getElementById(`newitem-amt-${catIdx}`);
+  const label = labelEl.value.trim();
+  let amt = parseFloat(amtEl.value);
+  if (!label) { labelEl.focus(); return; }
+  if (isNaN(amt)) amt = 0;
+  // If in USD, convert to RMB for storage
+  if (currency === 'USD') amt = amt * FX;
+  if (!customItems[cur][catLabel]) customItems[cur][catLabel] = [];
+  const newItem = { l: label, a: amt, n: '', _id: nextId() };
+  customItems[cur][catLabel].push(newItem);
+  labelEl.value = '';
+  amtEl.value = '';
+  render();
+}
+
+function removeItem(e, catLabel, itemId) {
+  e.stopPropagation();
+  initScenario(cur);
+  if (!removedIds[cur][catLabel]) removedIds[cur][catLabel] = new Set();
+  removedIds[cur][catLabel].add(itemId);
+  render();
+}
+
+// ─── Add / remove sections ──────────────────────────────────────────────
+
+function removeSection(e, label) {
+  e.stopPropagation();
+  initScenario(cur);
+  removedCustomSections[cur].add(label);
+  render();
+}
+
+function toggleAddSection() {
+  const panel = document.getElementById('addSectionPanel');
+  const btn = document.getElementById('addSectionToggle');
+  const showing = panel.style.display !== 'none';
+  panel.style.display = showing ? 'none' : 'block';
+  btn.textContent = showing ? '＋ Add new section' : '✕ Cancel';
+}
+
+function addNewSection() {
+  const name = document.getElementById('newSecName').value.trim();
+  if (!name) { document.getElementById('newSecName').focus(); return; }
+  initScenario(cur);
+  // Don't allow duplicates
+  if ((customSections[cur] || []).some(c => c.label === name)) {
+    alert('A section with this name already exists.');
+    return;
+  }
+  customSections[cur].push({ label: name, icon: selectedEmoji, color: selectedColor, items: [], custom: true });
+  // Make sure it's not in the removed set
+  removedCustomSections[cur].delete(name);
+  document.getElementById('newSecName').value = '';
+  // Open the new section
+  const cats = getCats();
+  open.add(cats.length - 1);
+  toggleAddSection();
+  render();
+}
+
+// ─── Build emoji + color pickers ────────────────────────────────────────
+
+function buildPickers() {
+  const ep = document.getElementById('emojiPicker');
+  ep.innerHTML = EMOJIS.map((e, i) =>
+    `<span class="emoji-opt ${i===0?'selected':''}" onclick="pickEmoji(this,'${e}')">${e}</span>`
+  ).join('');
+
+  const cp = document.getElementById('colorPicker');
+  cp.innerHTML = PALETTE.map((c, i) =>
+    `<div class="color-opt ${i===0?'selected':''}" style="background:${c};" onclick="pickColor(this,'${c}')"></div>`
+  ).join('');
+}
+
+function pickEmoji(el, e) {
+  selectedEmoji = e;
+  document.querySelectorAll('.emoji-opt').forEach(x => x.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function pickColor(el, c) {
+  selectedColor = c;
+  document.querySelectorAll('.color-opt').forEach(x => x.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────
+
+// Pre-stamp stable _ids on all static source items so deep-clones carry them
+function stampSourceIds() {
+  baseCats.forEach(cat => cat.items.forEach(item => { if (!item._id) item._id = nextId(); }));
+  Object.values(scenarios).forEach(sc => {
+    const ex = sc.extra;
+    if (ex.ayi) ex.ayi.forEach(item => { if (!item._id) item._id = nextId(); });
+    if (ex.school) ex.school.items.forEach(item => { if (!item._id) item._id = nextId(); });
+    if (ex.job) ex.job.items.forEach(item => { if (!item._id) item._id = nextId(); });
+  });
+}
+
+buildPickers();
+stampSourceIds();
+renderTabs();
+render();
+</script>
+</body>
+</html>
